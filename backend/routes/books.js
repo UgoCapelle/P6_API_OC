@@ -20,11 +20,11 @@ router.post('/', multer, async (req, res) => {
     });
 
     const savedBook = await book.save();
-    console.log('Saved book:', savedBook);
+    console.log('Book sauvegardé:', savedBook);
 
     res.status(201).json(savedBook);
   } catch (error) {
-    console.error('Error in book creation:', error);
+    console.error('Erreur dans la création du Book:', error);
     res.status(400).json({ message: error.message });
   }
 });
@@ -34,7 +34,18 @@ router.get('/', async (req, res) => {
     const books = await Book.find();
     res.status(200).json(books);
   } catch (error) {
+    console.error('Erreur fetching books:', error);
     res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/bestrating', async (req, res) => {
+  try {
+    const books = await Book.find().sort({ averageRating: -1 }).limit(3);
+    res.status(200).json(books);
+  } catch (error) {
+    console.error('Erreur fetching best-rated books:', error);
+    res.status(500).json({ message: 'Une erreur a eu lieu pendant le fatch des best-rated', error: error.message });
   }
 });
 
@@ -44,6 +55,7 @@ router.get('/:id', async (req, res) => {
     if (!book) return res.status(404).json({ message: 'Book not found' });
     res.status(200).json(book);
   } catch (error) {
+    console.error('Erreur fetching book:', error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -54,6 +66,7 @@ router.put('/:id', async (req, res) => {
     if (!book) return res.status(404).json({ message: 'Book not found' });
     res.status(200).json(book);
   } catch (error) {
+    console.error('Erreur updating book:', error);
     res.status(400).json({ message: error.message });
   }
 });
@@ -64,43 +77,72 @@ router.delete('/:id', async (req, res) => {
     if (!book) return res.status(404).json({ message: 'Book not found' });
     res.status(204).send();
   } catch (error) {
+    console.error('Erreur deleting book:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
 router.post('/:id/rating', async (req, res) => {
   const { userId, grade } = req.body;
+  const bookId = req.params.id;
+
+  console.log('Rating request reçue:', { bookId, userId, grade });
+
   
-  if (!userId || !grade) {
-    return res.status(400).json({ message: 'Informations manquantes (userId, grade).' });
+  if (!userId) {
+    return res.status(400).json({ message: 'UserId is required' });
+  }
+
+  
+  const numericGrade = Number(grade);
+  if (isNaN(numericGrade) || numericGrade < 0 || numericGrade > 5) {
+    return res.status(400).json({ message: 'La note doit etre entre 0 et 5' });
   }
 
   try {
-    const book = await Book.findById(req.params.id);
+    const book = await Book.findById(bookId);
 
     if (!book) {
-      return res.status(404).json({ message: 'Livre non trouvé.' });
+      return res.status(404).json({ message: 'Book non trouvé' });
     }
 
-    // Vérifier si l'utilisateur a déjà noté le livre
-    const existingRating = book.ratings.find(rating => rating.userId === userId);
-    if (existingRating) {
-      return res.status(400).json({ message: 'Cet utilisateur a déjà noté ce livre.' });
+    
+    const existingRatingIndex = book.ratings.findIndex(
+      rating => rating.userId === userId
+    );
+
+    if (existingRatingIndex !== -1) {
+      book.ratings[existingRatingIndex].grade = numericGrade;
+    } else {
+      book.ratings.push({
+        userId: userId,
+        grade: numericGrade
+      });
     }
 
-    // Ajouter la nouvelle note
-    book.ratings.push({ userId, grade });
-
-    // Mettre à jour la note moyenne
-    const totalRatings = book.ratings.length;
-    const totalGrades = book.ratings.reduce((sum, rating) => sum + rating.grade, 0);
-    book.averageRating = totalGrades / totalRatings;
+    const sum = book.ratings.reduce((acc, curr) => acc + curr.grade, 0);
+    book.averageRating = Number((sum / book.ratings.length).toFixed(2));
 
     await book.save();
 
-    res.status(201).json(book);
+    const response = {
+      _id: book._id,
+      id: book._id,
+      userId: book.userId,
+      title: book.title,
+      author: book.author,
+      imageUrl: book.imageUrl,
+      year: book.year,
+      genre: book.genre,
+      ratings: book.ratings,
+      averageRating: book.averageRating
+    };
+
+    res.status(200).json(response);
+
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Erreur pendant le rating du book:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
