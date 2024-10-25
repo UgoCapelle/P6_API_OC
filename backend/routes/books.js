@@ -83,19 +83,18 @@ router.delete('/:id', async (req, res) => {
 });
 
 router.post('/:id/rating', async (req, res) => {
-  const { userId, grade } = req.body;
+  const { userId, rating } = req.body;
   const bookId = req.params.id;
 
-  console.log('Rating request reçue:', { bookId, userId, grade });
+  console.log('Rating request reçue:', { bookId, userId, rating });
 
-  
   if (!userId) {
     return res.status(400).json({ message: 'UserId is required' });
   }
 
-  
-  const numericGrade = Number(grade);
-  if (isNaN(numericGrade) || numericGrade < 0 || numericGrade > 5) {
+
+  const numericRating = Number(rating);
+  if (isNaN(numericRating) || numericRating < 0 || numericRating > 5) {
     return res.status(400).json({ message: 'La note doit etre entre 0 et 5' });
   }
 
@@ -106,17 +105,17 @@ router.post('/:id/rating', async (req, res) => {
       return res.status(404).json({ message: 'Book non trouvé' });
     }
 
-    
+
     const existingRatingIndex = book.ratings.findIndex(
-      rating => rating.userId === userId
+      r => r.userId.toString() === userId
     );
 
     if (existingRatingIndex !== -1) {
-      book.ratings[existingRatingIndex].grade = numericGrade;
+      book.ratings[existingRatingIndex].grade = numericRating;
     } else {
       book.ratings.push({
         userId: userId,
-        grade: numericGrade
+        grade: numericRating
       });
     }
 
@@ -127,7 +126,6 @@ router.post('/:id/rating', async (req, res) => {
 
     const response = {
       _id: book._id,
-      id: book._id,
       userId: book.userId,
       title: book.title,
       author: book.author,
