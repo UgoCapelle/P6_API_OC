@@ -77,7 +77,11 @@ exports.getBookById = async (req, res) => {
 exports.updateBook = async (req, res) => {
   try {
     const oldBook = await Book.findById(req.params.id);
-    if (!oldBook) return res.status(404).json({ message: 'Book not found' });
+    if (!oldBook) return res.status(404).json({ message: 'Livre non trouvé' });
+
+    if (oldBook.userId !== req.userId) {
+      return res.status(403).json({ message: 'Accès refusé' });
+    }
 
     let updatedBookData;
     if (req.file) {
@@ -91,7 +95,7 @@ exports.updateBook = async (req, res) => {
     const updatedBook = await Book.findByIdAndUpdate(req.params.id, updatedBookData, { new: true });
     res.status(200).json(updatedBook);
   } catch (error) {
-    console.error('Erreur updating book:', error);
+    console.error('Erreur de mise à jour du livre:', error);
     res.status(400).json({ message: error.message });
   }
 };
@@ -99,12 +103,17 @@ exports.updateBook = async (req, res) => {
 exports.deleteBook = async (req, res) => {
   try {
     const book = await Book.findById(req.params.id);
-    if (!book) return res.status(404).json({ message: 'Book not found' });
+    if (!book) return res.status(404).json({ message: 'Livre non trouvé' });
+
+    if (book.userId !== req.userId) {
+      return res.status(403).json({ message: 'Accès refusé' });
+    }
+    
     deleteImageFile(book.imageUrl);
     await Book.findByIdAndDelete(req.params.id);
     res.status(204).send();
   } catch (error) {
-    console.error('Erreur deleting book:', error);
+    console.error('Erreur de suppression du livre:', error);
     res.status(500).json({ message: error.message });
   }
 };
