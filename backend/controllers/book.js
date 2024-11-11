@@ -2,10 +2,6 @@ const Book = require('../models/Book');
 const fs = require('fs');
 const path = require('path');
 
-const Book = require('../models/Book');
-const fs = require('fs');
-const path = require('path');
-
 const deleteImageFile = (imageUrl) => {
   if (!imageUrl) return;
   const filename = imageUrl.split('/images/')[1];
@@ -85,12 +81,12 @@ exports.updateBook = async (req, res) => {
 
     let updatedBookData;
     if (req.file) {
-        deleteImageFile(oldBook.imageUrl);
-        updatedBookData = JSON.parse(req.body.book);
+      deleteImageFile(oldBook.imageUrl);
+      updatedBookData = JSON.parse(req.body.book);
       const imageUrl = `${req.protocol}://${req.get('host')}/images/${req.file.filename}`;
       updatedBookData.imageUrl = imageUrl;
     } else {
-        updatedBookData = req.body;
+      updatedBookData = req.body;
     }
     const updatedBook = await Book.findByIdAndUpdate(req.params.id, updatedBookData, { new: true });
     res.status(200).json(updatedBook);
@@ -101,12 +97,12 @@ exports.updateBook = async (req, res) => {
 };
 
 exports.deleteBook = async (req, res) => {
-    try {
-      const book = await Book.findById(req.params.id);
-      if (!book) return res.status(404).json({ message: 'Book not found' });
-      deleteImageFile(book.imageUrl);
-      await Book.findByIdAndDelete(req.params.id);
-      res.status(204).send();
+  try {
+    const book = await Book.findById(req.params.id);
+    if (!book) return res.status(404).json({ message: 'Book not found' });
+    deleteImageFile(book.imageUrl);
+    await Book.findByIdAndDelete(req.params.id);
+    res.status(204).send();
   } catch (error) {
     console.error('Erreur deleting book:', error);
     res.status(500).json({ message: error.message });
@@ -114,40 +110,40 @@ exports.deleteBook = async (req, res) => {
 };
 
 exports.rateBook = async (req, res) => {
-    const { userId, rating } = req.body;
-    const bookId = req.params.id;
-  
-    console.log('Rating request reçue:', { bookId, userId, rating });
-  
-    if (!userId) {
-      return res.status(400).json({ message: 'UserId is required' });
+  const { userId, rating } = req.body;
+  const bookId = req.params.id;
+
+  console.log('Rating request reçue:', { bookId, userId, rating });
+
+  if (!userId) {
+    return res.status(400).json({ message: 'UserId is required' });
+  }
+
+  const numericRating = Number(rating);
+  if (isNaN(numericRating) || numericRating < 0 || numericRating > 5) {
+    return res.status(400).json({ message: 'La note doit être entre 0 et 5' });
+  }
+
+  try {
+    const book = await Book.findById(bookId);
+
+    if (!book) {
+      return res.status(404).json({ message: 'Book non trouvé' });
     }
-  
-    const numericRating = Number(rating);
-    if (isNaN(numericRating) || numericRating < 0 || numericRating > 5) {
-      return res.status(400).json({ message: 'La note doit être entre 0 et 5' });
+
+    const existingRatingIndex = book.ratings.findIndex(
+      r => r.userId.toString() === userId
+    );
+
+    if (existingRatingIndex !== -1) {
+      book.ratings[existingRatingIndex].grade = numericRating;
+    } else {
+      book.ratings.push({
+        userId: userId,
+        grade: numericRating
+      });
     }
-  
-    try {
-      const book = await Book.findById(bookId);
-  
-      if (!book) {
-        return res.status(404).json({ message: 'Book non trouvé' });
-      }
-  
-      const existingRatingIndex = book.ratings.findIndex(
-        r => r.userId.toString() === userId
-      );
-  
-      if (existingRatingIndex !== -1) {
-        book.ratings[existingRatingIndex].grade = numericRating;
-      } else {
-        book.ratings.push({
-          userId: userId,
-          grade: numericRating
-        });
-      }
-      const sum = book.ratings.reduce((acc, curr) => acc + curr.grade, 0);
+    const sum = book.ratings.reduce((acc, curr) => acc + curr.grade, 0);
     book.averageRating = Number((sum / book.ratings.length).toFixed(2));
 
     await book.save();
