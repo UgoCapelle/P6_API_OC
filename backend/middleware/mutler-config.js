@@ -1,20 +1,35 @@
 const multer = require('multer');
+const sharp = require('sharp');
+const path = require('path');
 
-const MIME_TYPES = {
-  'image/jpg': 'jpg',
-  'image/jpeg': 'jpg',
-  'image/png': 'png'
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage }).single('image');
+
+const multerConfig = (req, res, next) => {
+  upload(req, res, async (err) => {
+    if (err) {
+      return res.status(500).json({ message: 'Erreur lors du téléchargement de l\'image.' });
+    }
+
+    if (req.file) {
+      const outputFileName = `${req.file.originalname.split(' ').join('_').split('.')[0]}_${Date.now()}.webp`;
+      const outputPath = path.join('images', outputFileName);
+
+      try {
+        await sharp(req.file.buffer)
+          .resize(206, 260)
+          .toFormat('webp')
+          .toFile(outputPath);
+
+        req.file.path = outputPath;
+        req.file.filename = outputFileName;
+
+      } catch (error) {
+        return res.status(500).json({ message: 'Erreur lors de la transformation de l\'image.' });
+      }
+    }
+    next();
+  });
 };
 
-const storage = multer.diskStorage({
-  destination: (req, file, callback) => {
-    callback(null, 'images');  
-  },
-  filename: (req, file, callback) => {
-    const name = file.originalname.split(' ').join('_');
-    const extension = MIME_TYPES[file.mimetype];
-    callback(null, name + Date.now() + '.' + extension);
-  }
-});
-
-module.exports = multer({ storage: storage }).single('image');
+module.exports = multerConfig;
